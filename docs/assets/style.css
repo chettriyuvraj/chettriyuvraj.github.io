@@ -11,7 +11,6 @@ body {
     color: #444;
 }
 
-
 /* Hide scrollbar for Chrome, Safari and Opera */
 html::-webkit-scrollbar {
     display: none;
@@ -304,7 +303,7 @@ ul.discover-posts li small a {
     }
 
     pre code {
-        color: #f2f2f2;
+        color: #ddd;
     }
 
     blockquote {
