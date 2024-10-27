@@ -1,0 +1,24 @@
+{
+    "domain": "chettriyuvraj.github.io",
+    "title": "chettriyuvraj",
+    "description": "Yuvraj Chettri's personal blog",
+    "URL": "https://chettriyuvraj.github.io",
+    "base_URL": "/docs",
+    "special_links": [
+      {
+        "URL": "https://www.linkedin.com/in/yuvraj-chettri/",
+        "display_text": "LinkedIn"
+      },
+       {
+        "URL": "https://www.github.com/chettriyuvraj",
+        "display_text": "Github"
+      }
+    ],
+    "paths": {
+        "blog": "/blog"
+      },
+    "google_analytics": {
+      "tracking_id": "G-VQGGDY7F3D"
+    }
+  }
+  
