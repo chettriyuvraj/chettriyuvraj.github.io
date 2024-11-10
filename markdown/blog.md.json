@@ -1,6 +1,4 @@
 {
-    "layout": "blog",
-    "title": "Blog", 
-    "description": "My Writings",
-    "URL": "/blog"
+  "title": "Yuvraj Chettri's blog",
+  "description": "Yuvraj Chettri's personal blog"
 }
