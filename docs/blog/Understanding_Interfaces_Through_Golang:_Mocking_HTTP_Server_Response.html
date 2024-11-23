@@ -45,7 +45,313 @@
     <h1>Understanding Interfaces Through Golang: Mocking HTTP Server Response</h1>
     <i>Feb 21st, 2024</i>
 
-    
+    <h2 id="rant">Rant</h2>
+
+<p>If you have ever run through a university-level course on a programming language (say Java), you have likely come across the concept of interfaces.</p>
+
+<p>Even more likely is the fact that you have been given an example akin to:</p>
+<div class='highlight'><pre class='highlight'><code>interface Bicycle {
+    void speedUp(int increment);
+}
+
+class NormalBicycle implements Bicycle {
+  int speed = 0;
+  void speedUp(int increment) {
+    speed += increment
+  }
+}
+
+class GearBicycle implements Bicycle {
+  int speed = 0;
+  void speedUp(int increment) {
+    changeGear();
+    speed += increment
+  }
+}
+</code></pre></div>
+<p>Can we be critical of such an example? An introductory programming course is like being hit with a barrage of ideas all at once, trying to piece things together. With that context in mind, such an example does kinda-sorta touch upon the concept of <em>single interface, multiple implementations</em>.</p>
+
+<p>The trouble lies come the end of the course. Having never been exposed to how interfaces are used in real systems, the exam sheets end up being filled with examples like:</p>
+
+<ul>
+<li>Birds flying()</li>
+<li>Vehicles starting_engine()</li>
+<li>Cats attacking()</li>
+</ul>
+
+<p>I mean all of these are logical, if somewhat convoluted deductions from the <em>Bicycle</em> example, right?</p>
+
+<h2 id="thoughts">Thoughts</h2>
+
+<ul>
+<li>If all you are left with at the end of a course/book/tutorial are these examples, is your understanding any further than someone who doesn&rsquo;t code? Present the <em>Bicycle</em> example to any <em>smart</em> person and they can easily deduce the other examples.</li>
+<li>Conversely, when you come across a real-world opportunity to use an interface, it won&rsquo;t click. You end up with a problem to which you have seen the solution, but still don&rsquo;t know how to solve.</li>
+<li>Heck, even that would be a good programming assignment - NOT using an interface and then being shown how one would naturally fit</li>
+<li>You become like that child who rote learnt multiplication tables. You know 6 x 7, but blank out on 7 x 6</li>
+</ul>
+
+<p>Considering the above, I would think that how a lot of people understand interfaces is when they come across a well-written one, and life suddenly makes sense all at once.</p>
+
+<p>Why not do exactly that, then?</p>
+
+<p>We will use a fairly routine task as the basis for our understanding: mocking responses from an HTTP server to a client sending requests.</p>
+
+<h2 id="real-life-scenario">Real Life Scenario</h2>
+
+<ul>
+<li>You were asked to create an HTTP client that hits a server endpoint and gets the response</li>
+<li><em>&ldquo;Easy peasy breezy&rdquo;!</em></li>
+<li>You created a client. Grabbed the response. Ran it through a bunch of handlers depending on the HTTP status code.</li>
+<li>Now you want to test it without hitting the real endpoint because, let&rsquo;s say they charge 1000$ per hit</li>
+</ul>
+
+<p>Solution 1: You can create an actual server using the <em>NewServer()</em> function defined in the <em>httptest</em> package, which is a reasonable choice.</p>
+
+<p>Solution 2: Cleverly make use of an existing Golang interface: the <em>RoundTripper</em>. Of course we&rsquo;re going to use this solution! What the hell was I on about otherwise? Trying to look smart with interfaces and all..</p>
+
+<p>We will proceed in a bottom-up fashion, starting from the <em>RoundTripper</em> interface itself and building our way to the top of the pyramid: using <em>RoundTripper</em> to mock an HTTP server response.</p>
+
+<h2 id="roundtripper-and-interfaces-in-go">RoundTripper and interfaces in Go</h2>
+
+<p>The <em><a href="https://pkg.go.dev/net/http" target="_blank">net/http</a></em> package in Go&rsquo;s standard library defines the <em>RoundTripper</em> interface as</p>
+<div class='highlight'><pre class='highlight'><code>type RoundTripper interface {
+  RoundTrip(*Request) (*Response, error)
+}
+</code></pre></div>
+<p>It is an interface with a single method <em>RoundTrip</em> that takes in a <em>Request</em> and returns a <em>Response</em>.</p>
+
+<p>For those of you unfamiliar with Go&rsquo;s interface mechanism. Go uses the notion of _<a href="https://en.wikipedia.org/wiki/Duck_typing#:~:text=In%20computer%20programming%2C%20duck%20typing,used%20for%20a%20particular%20purpose." target="_blank">Duck Typing</a>_ for interfaces. To match structs to interfaces, it uses the the <em>duck test</em>. According to the <em>duck test</em>, <em>if it walks like a duck and it quacks like a duck, then it must be a duck</em>. What does this mean? Any struct that has a <em>RoundTrip</em> method is automatically a <em>RoundTripper</em>!</p>
+
+<p>How is this different from other languages? Take Java for example: objects have to explicitly declare the interfaces they implement i.e. <em>class NewObject implements Roundtripper</em>. Interfaces in Go are implicit - no need for such declarations.</p>
+
+<h2 id="http-requests-in-go">HTTP Requests in Go</h2>
+
+<p>The first step was to understand the <em>RoundTripper</em> interface.</p>
+
+<p>Next, we will look at how client requests are sent to the server in Go. Our goal is to mock an HTTP server response, but what for? To test our client requests! Understanding how client requests are sent will be key to this goal.</p>
+
+<p>Go&rsquo;s _<a href="https://pkg.go.dev/net/http#hdr-Clients_and_Transports" target="_blank">net/http</a>_ documentation provides the following example along with some commentary</p>
+<div class='highlight'><pre class='highlight'><code>For control over HTTP client headers, redirect policy, and other settings, create a Client:
+
+client := &http.Client{
+  CheckRedirect: redirectPolicyFunc,
+}
+resp, err := client.Get("http://example.com")
+
+
+For control over proxies, TLS configuration, keep-alives, compression, and other settings, create a Transport:
+
+tr := &http.Transport{
+  MaxIdleConns:       10,
+  IdleConnTimeout:    30 * time.Second,
+  DisableCompression: true,
+}
+client := &http.Client{Transport: tr}
+resp, err := client.Get("https://example.com")
+</code></pre></div>
+<p>Simple enough, right?</p>
+
+<p>The way to execute an HTTP request is simply to create a client. Define (Optionally) a transport. Execute your request using the client&rsquo;s baked in methods such as client.Get() or client.Post()</p>
+
+<h2 id="clients-and-transports-a-closer-look">Clients and Transports: A closer look</h2>
+
+<p>Let&rsquo;s take a closer look at the <em>Client</em> and the <em>Transport</em> struct</p>
+
+<p>Our <em>[Client]</em>(<a href="https://pkg.go.dev/net/http#Client" target="_blank">https://pkg.go.dev/net/http#Client</a>) struct is defined as</p>
+<div class='highlight'><pre class='highlight'><code>type Client struct {
+  Transport RoundTripper
+  CheckRedirect func(req *Request, via []*Request) error
+  Jar CookieJar
+  Timeout time.Duration
+}
+</code></pre></div>
+<p>Notice anything? <em>Transport</em> is a <em>RoundTripper</em>. Interesting!</p>
+
+<p>That means it is implementing the <em>RoundTrip</em> method. Let&rsquo;s us confirm this: the <em>Transport</em> struct is located in the <em>transport.go file</em>. A quick search for <em>RoundTrip</em> gives us no method definitions for <em>RoundTrip</em>. Weird..</p>
+
+<p>Try it yourself: Go to <a href="https://cs.opensource.google/go/go/+/refs/tags/go1.22.0:src/net/http/transport.go" target="_blank">transport.go</a>, try to find the method definition for <em>RoundTrip</em>. No luck!</p>
+
+<p>We do have a <em>roundTrip</em> though (hmm):</p>
+
+<p><img src="../assets/images/Pasted%20image%2020240216161048.png" alt="" /></p>
+
+<p>A bit more digging and we find <em>RoundTrip</em> here: a <em>roundtrip.go</em> file with only one method definition: for <em>Transport.RoundTrip</em> which calls the internal <em>Transport.roundTrip</em> we saw above.</p>
+
+<p><img src="../assets/images/Pasted%20image%2020240216161733.png" alt="" />
+Why this weird structuring? I have absolutely no clue! Like any other codebase, Go&rsquo;s source code has rabbit holes you don&rsquo;t want to get into. Hit me up if someone does find the commit and the reason for this, though!</p>
+
+<p>So far, we have:</p>
+
+<ol>
+<li>Seen that <em>Client</em> has a field called <em>Transport</em>, which is a <em>RoundTripper</em></li>
+<li>Confirmed that <em>Transport</em> is a <em>RoundTripper</em> by wading through Go source code</li>
+<li>Understood that real codebases can be weird.</li>
+</ol>
+
+<h2 id="clients-and-transports-an-even-closer-look">Clients and Transports: An even closer look</h2>
+
+<p>Let&rsquo;s continue digging to see if we can make sense of what <em>Clients</em> and <em>Transports</em> actually are</p>
+
+<p>The <a href="https://pkg.go.dev/net/http#Client" target="_blank">Client struct documentation</a> additionally states:</p>
+<div class='highlight'><pre class='highlight'><code>A Client is an HTTP client. Its zero value (DefaultClient) is a usable client that uses DefaultTransport.
+
+A Client is higher-level than a RoundTripper (such as Transport) and additionally handles HTTP details such as cookies and redirects.
+</code></pre></div>
+<p>The second line is particularly interesting. <em>A Client is higher level than a RoundTripper (such as a Transport) and additionally handles HTTP details such as cookies and redirects.</em> This seems to imply that <em>Client</em> is simply a wrapper around the <em>Transport</em> with additional options to control certain settings.</p>
+
+<p>Let&rsquo;s find out if this is true. We&rsquo;ll go all the way into <em>Client.Get()</em> and see how an HTTP request is actually made.</p>
+
+<p><em>Client.Get()</em> seems to be a wrapper around <em>Client.Do()</em>. This must also apply to other methods like <em>Client.Post()</em> (go and check):
+<img src="../assets/images/Pasted%20image%2020240216163846.png" alt="" /></p>
+
+<p><em>Client.Do()</em> calls into the internal <em>client.do()</em>, which looks like a hot mess:
+<img src="../assets/images/Pasted%20image%2020240216164016.png" alt="" /></p>
+
+<p>Amidst all the muck, we can make an educated guess that <em>Client.send()</em> is executing the request:
+<img src="../assets/images/Pasted%20image%2020240216164245.png" alt="" /></p>
+
+<p><em>Client.send()</em> does a small couple of things, but we are interested in the <em>send()</em> function that it calls. It also passes to the function, our <em>Transport</em>. This is getting interesting!
+<img src="../assets/images/Pasted%20image%2020240216164458.png" alt="" /></p>
+
+<p><em>send()</em> again is doing a bunch of stuff, but the comment tells us we are on the right track. Somewhere around here there is an HTTP request being sent:
+<img src="../assets/images/Pasted%20image%2020240216164723.png" alt="" /></p>
+
+<p>Look closely and.. it&rsquo;s our <em>Transport</em>! <em>rt.RoundTrip</em> seems to be the call that is executed to get the response. We can&rsquo;t follow the trail anymore because <em>RoundTrip</em> is an interface method, remember? Every <em>RoundTripper</em> will have it&rsquo;s own internal implementation of <em>RoundTrip</em>
+<img src="../assets/images/Pasted%20image%2020240216164912.png" alt="" /></p>
+
+<p>What did we learn?</p>
+
+<ul>
+<li><em>Client</em> is simply a wrapper around <em>Transport</em>, which is where the actual magic of an HTTP request happens.</li>
+<li>The <em>RoundTripper</em> interface and its <em>RoundTrip</em> method is basically an abstraction which defines the concept of sending a request and getting a response.</li>
+</ul>
+
+<p>I am hoping you are beginning to see the outline of why interfaces are powerful..</p>
+
+<h2 id="mocking-an-http-server-response">Mocking an HTTP server response</h2>
+
+<p>If you haven&rsquo;t joined the dots already. Here&rsquo;s how you can test your HTTP Client Requests using the RoundTripper interface.</p>
+
+<p>Here&rsquo;s what we have. A client making HTTP requests, getting the response, and performing some manipulations on the response:</p>
+<div class='highlight'><pre class='highlight'><code>type CustomClient struct {
+  client http.Client
+}
+
+func NewCustomClient(rt http.RoundTripper) *CustomClient {
+  return &CustomClient{
+    client: http.Client{
+      Transport: rt,
+      Timeout: TIMEOUT * time.Second,
+    },
+  }
+}
+
+func (f *CustomClient) MakeRequest(URL string) (string, error) {
+  fmt.Fprintf(os.Stderr, "\n\nMaking new request to %v...", URL)
+
+  resp, err := f.client.Get(URL)
+  if err != nil { /* request itself returns an error */
+    return "", ClientUnexpectedError
+  }
+  defer resp.Body.Close()
+
+  switch sc := resp.StatusCode; sc {
+    case http.StatusOK:
+      return f.handle200(resp)
+    case http.StatusTooManyRequests:
+      return f.handle429(resp)
+    default:
+      return f.handleUnexpectedResponse(resp)
+  }
+}
+
+/**** HELPERS ****/
+func (f *CustomClient) handle200(resp *http.Response) (string, error) {
+  body, err := io.ReadAll(resp.Body)
+
+  // can do all sorts of manipulations on this response..
+  // extract vowels.. 
+  // convert this response to lowercase..
+  // in our case, we will only convert it to uppercase..
+
+  return upperCaseBody, nil
+}
+</code></pre></div>
+<p>Our server returns a 200 status code and the response <em>&ldquo;This is Sparta!&rdquo;</em> Our handler will convert this to uppercase. Just to restate: this handler logic is what we are looking to test, which is why we need to mock the server response.</p>
+
+<p>First, define a custom RoundTripper</p>
+<div class='highlight'><pre class='highlight'><code>type MockRoundTripper struct {
+  t *testing.T
+  responses []*http.Response
+  reqIndex int
+}
+
+func NewMockRoundTripper(t *testing.T) *MockRoundTripper {
+  return &MockRoundTripper{
+    t: t,
+  }
+}
+
+func (m *MockRoundTripper) StubResponse(statusCode int, header *http.Header, body string) {
+  resp := &http.Response{
+    StatusCode: statusCode,
+    Proto: "HTTP/1.1",
+    ProtoMajor: 1,
+    ProtoMinor: 1,
+    Header: *header,
+    Body: io.NopCloser(strings.NewReader(body)),
+  }
+  m.responses = append(m.responses, resp)
+}
+
+func (m *MockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+  m.t.Helper()
+  require.Less(m.t, m.reqIndex, len(m.responses), fmt.Sprintf("error: number of requests %d, number of responses %d", m.reqIndex, len(m.responses)))
+  resp = m.responses[m.reqIndex]
+  m.reqIndex += 1
+  return resp, nil
+}
+
+</code></pre></div>
+<p>Explanation:</p>
+
+<ul>
+<li><p><em>MockRoundTripper</em>: Has 3 fields, <em>t</em> stores the testing state from Go&rsquo;s test package; <em>responses</em> stores the mock responses that we want our server to return; <em>reqIndex</em> stores the current request index i.e. first response will be returned for the first request, second for the second and so on.</p></li>
+
+<li><p><em>StubResponse()</em>: Accepts <em>statusCode</em>, <em>headers</em> and the <em>body</em> for the response we want from our server. It then stuffs it into an http.Response object and adds it to our response array.</p></li>
+
+<li><p><em>RoundTrip</em>: Simply returns the response depending on the reqIndex and increases the reqIndex.</p></li>
+</ul>
+
+<p>Finally, the test for our handler looks like</p>
+<div class='highlight'><pre class='highlight'><code>func TestHandle200(t *testing.T) {
+  body := "This is Sparta!"
+  mockRoundTripper := testutils.NewMockRoundTripper(t)
+  f := NewFetcher(mockRoundTripper)
+  mockRoundTripper.StubResponse(200, &http.Header{}, body)
+  handledResp, err := f.MakeRequest("http://www.dummyurl.com") // URL doesn't matter 
+  require.NoError(t, err)
+  require.Equal(t, handledResp, strings.ToUpper(body))
+}
+</code></pre></div>
+<p>Ba Dum Tss!</p>
+
+<h2 id="putting-the-pieces-together">Putting the pieces together</h2>
+
+<p>Why did I wade into the muddy waters of Go&rsquo;s standard library?</p>
+
+<p>To show how an actual interface, the <em>RoundTripper</em> interface was nicely wrapped around and then used deep inside the wrapper to perform quite a simple task: execute an HTTP request.</p>
+
+<p>We then defined a custom implementation for this interface and used it to perform a routine task: mock an HTTP server response. This shows the actual meaning of the phrase <em>one interface, multiple implementations.</em></p>
+
+<p>Where do you go from here? Try going through some more of Go&rsquo;s interfaces such as <em>io.Reader</em> and <em>io.Writer</em> and how they can be used. Consider this scenario: how would you use another one of Go&rsquo;s interfaces to test a CLI program that outputs to <em>stdout</em></p>
+
+<h2 id="resources">Resources</h2>
+
+<ul>
+<li>The <em>MockRoundTripper</em> is borrowed from <a href="https://github.com/illicitonion" target="_blank">Daniel Wagner Hall&rsquo;s</a> implementation <a href="https://github.com/CodeYourFuture/immersive-go-course/blob/impl/output-and-error-handling/projects/output-and-error-handling/testutils/mock_round_tripper.go" target="_blank">here</a>. It reads like poetry.</li>
+</ul>
+
 
 
 
