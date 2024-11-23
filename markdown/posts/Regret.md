@@ -1,3 +1,12 @@
+------------------
+{
+  "title": "Regret",
+  "date": "Apr 26th, 2024",
+  "tags": [
+    "personal"
+  ]
+}
+------------------
 I am staring at the half-closed curtain to my balcony window. The sun is shining brightly outside. From where I am sitting, it feels just the right amount of far to prevent me from making the effort to go out. Maybe tomorrow, I tell myself. You won't see _this sun_ ever again, I counter.
 
 A quick snap of his fingers brought me back. I missed out on most of the talk but tune in just in time for the climax. _I just hope you don't make a decision that you end up regretting_ is what my father ends our conversation with. Just to be clear - if politeness got tired of life's drudgery and tried to disguise itself with a fake voice once in 12 months (but failed even then) - that is my father. What he said did not have the slightest hint of snide in it.

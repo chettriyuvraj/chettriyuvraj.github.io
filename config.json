@@ -1,7 +1,7 @@
 {
   "title": "chettriyuvraj",
   "description": "Yuvraj Chettri's personal blog",
-  "URL": "https://chettriyuvraj.github.io",
+  "URL": "https://chettriyuvraj.github.io/",
   "special_links": [
     {
       "URL": "https://www.linkedin.com/in/yuvraj-chettri/",
@@ -16,6 +16,6 @@
     "blog": "/blog"
   },
   "google_analytics": {
-    "tracking_id": "1234567"
+    "tracking_id": "G-VQGGDY7F3D"
   }
 }
