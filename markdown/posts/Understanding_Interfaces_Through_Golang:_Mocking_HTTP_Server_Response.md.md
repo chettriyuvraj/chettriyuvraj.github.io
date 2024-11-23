@@ -1,6 +1,6 @@
 ------------------
 {
-  "title": "Understanding_Interfaces_Through_Golang:_Mocking_HTTP_Server_Response.md",
+  "title": "Understanding Interfaces Through Golang: Mocking HTTP Server Response",
   "date": "Feb 21st, 2024",
   "tags": [
     "programming",
