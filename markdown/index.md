@@ -5,6 +5,7 @@
   "tags": null
 }
 ------------------
-Hi! My name is Yuvraj Chettri. I have a lot to say about football and programming, but not the body of work to back that statement up. 
+_There is no heavier burden than unfulfilled potential._
 
-Right now, I'm stuck in an endless loop of _Oh, I should write about that!_
+
+Site generated via [ez-ssg](https://github.com/chettriyuvraj/ez-ssg).
